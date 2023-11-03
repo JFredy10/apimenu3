@@ -1,11 +1,10 @@
 import os
-
 from fastapi import FastAPI, Depends, Request, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy import create_engine, Column, Integer, String, Text, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -31,6 +30,7 @@ class ProductoModel(Base):
     imagen = Column(String, index=True)
     nombre = Column(String, index=True)
     descripcion = Column(Text)
+    precio = Column(Float)  # Agregamos el campo precio
 
 
 # Crea las tablas en la base de datos (si no existen)
@@ -41,6 +41,7 @@ Base.metadata.create_all(bind=engine)
 class ProductoBase(BaseModel):
     nombre: str
     descripcion: str
+    precio: float  # Agregamos el campo precio
 
 
 class ProductoCreate(ProductoBase):
@@ -87,7 +88,8 @@ async def create_product(producto: ProductoCreate, db: Session = Depends(get_db)
     db_product = ProductoModel(
         imagen=producto.imagen.filename,
         nombre=producto.nombre,
-        descripcion=producto.descripcion
+        descripcion=producto.descripcion,
+        precio=producto.precio  # Agregamos el campo precio
     )
     db.add(db_product)
     db.commit()
@@ -122,6 +124,8 @@ async def update_product(id: int, producto: ProductoUpdate, db: Session = Depend
             db_product.nombre = producto.nombre
         if producto.descripcion is not None:
             db_product.descripcion = producto.descripcion
+        if producto.precio is not None:
+            db_product.precio = producto.precio  # Actualizamos el campo precio
         db.commit()
         db.refresh(db_product)
         return JSONResponse(content={"message": "Producto actualizado exitosamente"})
@@ -149,10 +153,10 @@ async def delete_product(id: int, db: Session = Depends(get_db)):
         db.delete(db_product)
         db.commit()
         return JSONResponse(content={"message": "Producto eliminado exitosamente"})
-    raise
+    raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", port=8000)
